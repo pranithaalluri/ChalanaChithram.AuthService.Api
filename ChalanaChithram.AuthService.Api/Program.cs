@@ -1,6 +1,9 @@
 using ChalanaChithram.AuthService.Api.Data;
 using ChalanaChithram.AuthService.Api.Helpers;
-using ChalanaChithram.AuthService.Api.Seed;
+using ChalanaChithram.AuthService.Api.Repositories;
+using ChalanaChithram.AuthService.Api.Repositories.Interfaces;
+using ChalanaChithram.AuthService.Api.Services;
+using ChalanaChithram.AuthService.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
@@ -26,6 +29,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 });
 
 builder.Services.AddScoped<JwtTokenHelper>();
+builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -55,8 +60,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 WebApplication app = builder.Build();
-
-//await DatabaseSeeder.SeedAsync(app.Services);
 
 if (app.Environment.IsDevelopment())
 {

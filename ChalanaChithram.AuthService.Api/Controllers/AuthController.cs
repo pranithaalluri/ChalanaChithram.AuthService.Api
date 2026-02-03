@@ -1,94 +1,45 @@
-﻿using ChalanaChithram.AuthService.Api.Data;
-using ChalanaChithram.AuthService.Api.DTOs.Requests;
-using ChalanaChithram.AuthService.Api.DTOs.Responses;
-using ChalanaChithram.AuthService.Api.Entities;
-using ChalanaChithram.AuthService.Api.Helpers;
-using Microsoft.AspNetCore.Authorization;
+﻿using ChalanaChithram.AuthService.Api.DTOs.Requests;
+using ChalanaChithram.AuthService.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace ChalanaChithram.AuthService.Api.Controllers;
 
 [ApiController]
-
 [Route("api/[controller]")]
-public class AuthController(AppDbContext dbContext, JwtTokenHelper jwtTokenHelper) : ControllerBase
+public class AuthController(IAuthService authService) : ControllerBase
 {
-    private readonly AppDbContext dbContext = dbContext;
-    private readonly JwtTokenHelper jwtTokenHelper = jwtTokenHelper;
+    private readonly IAuthService authService = authService;
 
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+        try
         {
-            return BadRequest("Email and Password are required.");
+            await authService.Register(request);
+            return Ok("User registered successfully.");
         }
-
-        bool exists = await dbContext.AppUsers.AnyAsync(x => x.Email == request.Email);
-        if (exists)
+        catch (InvalidOperationException ex)
         {
-            return Conflict("User already exists with this email.");
+            return Conflict(ex.Message);
         }
-
-        AppUser user = new AppUser
+        catch (ArgumentException ex)
         {
-            FullName = request.FullName,
-            Email = request.Email,
-            PasswordHash = PasswordHasher.HashPassword(request.Password),
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        dbContext.AppUsers.Add(user);
-        await dbContext.SaveChangesAsync();
-
-        return Ok("User registered successfully.");
+            return BadRequest(ex.Message);
+        }
     }
 
     [HttpPost("login")]
     public async Task<IActionResult> Login(LoginRequest request)
     {
-        AppUser? user = await dbContext.AppUsers.FirstOrDefaultAsync(x => x.Email == request.Email);
-
-        if (user == null)
+        try
         {
-            return Unauthorized("Invalid email or password.");
+            return Ok(await authService.Login(request));
         }
-
-        bool passwordOk = PasswordHasher.VerifyPassword(request.Password, user.PasswordHash);
-        if (!passwordOk)
+        catch (UnauthorizedAccessException ex)
         {
-            return Unauthorized("Invalid email or password.");
+            return Unauthorized(ex.Message);
         }
-
-        string accessToken = jwtTokenHelper.GenerateAccessToken(user);
-        string refreshTokenValue = jwtTokenHelper.GenerateRefreshToken();
-
-        RefreshToken refreshToken = new()
-        {
-            UserId = user.Id,
-            Token = refreshTokenValue,
-            CreatedAt = DateTime.UtcNow,
-            ExpiresAt = DateTime.UtcNow.AddDays(7),
-            RevokedAt = null
-        };
-
-        dbContext.RefreshTokens.Add(refreshToken);
-        await dbContext.SaveChangesAsync();
-
-        AuthResponse response = new AuthResponse
-        {
-            UserId = user.Id,
-            FullName = user.FullName,
-            Email = user.Email,
-            AccessToken = accessToken,
-            RefreshToken = refreshTokenValue
-        };
-
-        return Ok(response);
     }
 }
