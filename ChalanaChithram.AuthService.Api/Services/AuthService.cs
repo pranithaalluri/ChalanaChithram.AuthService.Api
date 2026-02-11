@@ -59,7 +59,7 @@ public class AuthService(
             AppUser? user = await authRepository.GetUserByEmail(request.Email);
             if (user == null)
             {
-                throw new UnauthorizedAccessException("Invalid email or password.");
+                throw new UnauthorizedAccessException("Invalid email ");
             }
 
             bool passwordOk =
@@ -67,7 +67,7 @@ public class AuthService(
 
             if (!passwordOk)
             {
-                throw new UnauthorizedAccessException("Invalid email or password.");
+                throw new UnauthorizedAccessException("Invalid password");
             }
 
             string accessToken = jwtTokenHelper.GenerateAccessToken(user);
